@@ -1,0 +1,29 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "david.inglis@live.com",
+    "longName": "Flood",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/image_icon.png",
+                "menuIcon": true,
+                "name": "IMAGE_ICON",
+                "type": "bitmap"
+            }
+        ]
+    },
+    "sdkVersion": "3",
+    "shortName": "Flood",
+    "targetPlatforms": [
+        "basalt"
+    ],
+    "uuid": "19d3abc2-e063-4d3b-8368-c878a53bfa99",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
