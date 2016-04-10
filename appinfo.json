@@ -4,6 +4,7 @@
         ""
     ],
     "companyName": "david.inglis@live.com",
+    "enableMultiJS": false,
     "longName": "Flood",
     "projectType": "native",
     "resources": {
