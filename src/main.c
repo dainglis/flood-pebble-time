@@ -1,23 +1,13 @@
 #include <pebble.h>
-#define SIZE 14
-#define MAXCOLS 6
+#include "path.h"
+#define VARIABLE_SIZE 14
+#define VARIABLE_MOVES 26
+#define VARIABLE_COLORS 6
 #define COLORSCHEME 2
 //rgb = 1, inchworm = 2, purpureus = 3
 
-//TODO
-//basically, every iteration its going to create a square outwards where all the cells
-//in the square are the same color, so the recursion can be directly pushed outwards to
-//the edges of the square
-
-
-/* to reduce recursion:
- * creates an array of all cells in the current "path"
- * changes the color of each cell in the "path"
- * run recursion on each cell and add any new cells to the path (order does not matter)
- */
-
-static const int BOARD_SIZE = SIZE;
-static const int MOVES = 25;
+static const int BOARD_SIZE = VARIABLE_SIZE;
+static const int MOVES = VARIABLE_MOVES;
 static const int PLAY = 0;
 static const int WIN = 1;
 static const int LOSE = 2;
@@ -27,16 +17,15 @@ static Window *window;
 static TextLayer *text_layer;
 static Layer *graphics_layer;
 static int active_color;
-static int board[SIZE][SIZE];
-static int colors[MAXCOLS];
+static int board[VARIABLE_SIZE][VARIABLE_SIZE];
+static int colors[VARIABLE_COLORS];
 static int moves;
 static int game_state;
 static bool recur;
 static char* move_string;
-//static Game *game;
+static int recursions;
+static Path* path;
 
-//debug, used for recursion app_log output
-static int ree;
 
 /*
  * generates move text on top left of play screen
@@ -58,7 +47,7 @@ static void generate_string(int n) {
 }
 
 /*
- * checks to see if the whole board is all 1 color
+ * checks to see if the whole board is all one color
  * if so, the player wins
  */
 bool game_won() {
@@ -102,16 +91,18 @@ static void init_board() {
   recur = false;
   moves = 0;
   game_state = PLAY;
-  for (int i = 0; i < MAXCOLS; i++) {
+  for (int i = 0; i < VARIABLE_COLORS; i++) {
     colors[i] = 0;
   }
   for (int r = 0; r < BOARD_SIZE; r++) {
     for (int c = 0; c < BOARD_SIZE; c++) {
-      int col = rand() % MAXCOLS;
+      int col = rand() % VARIABLE_COLORS;
       board[r][c] = col;
       colors[col]++;
     }
   }
+  path->size = 0;
+  path_add_to_path(path, 0, 0);
   set_state();
 }
 
@@ -120,24 +111,28 @@ static void init_board() {
  * starting from (0, 0), if a cell connected to the current cell matches the original color of the (0, 0) cell,
  * it is changed to the selected color for that turn
  */
-static void set_cell_color(int r, int c, int color, int prev_c) {
-  int prev = prev_c;
-  board[r][c] = color;
-  colors[prev]--;
-  colors[color]++;
-  
-  ree++; //DEBUG
+static void set_cell_color(int r, int c, int color, int prev) {
+  if (recursions > 0) {
+    board[r][c] = color;
+    colors[prev]--;
+    colors[color]++;
+  }
+  recursions++;
   
   if (r < BOARD_SIZE - 1 && board[r+1][c] == prev) {
+    path_add_to_path(path, r + 1, c);
     set_cell_color(r + 1, c, color, prev);
   }
   if (r > 0 && board[r-1][c] == prev) {
+    path_add_to_path(path, r - 1, c);
     set_cell_color(r - 1, c, color, prev);
   }
   if (c < BOARD_SIZE - 1 && board[r][c+1] == prev) {
+    path_add_to_path(path, r, c + 1);
     set_cell_color(r, c + 1, color, prev);
   }
   if (c > 0 && board[r][c-1] == prev) {
+    path_add_to_path(path, r, c - 1);
     set_cell_color(r, c - 1, color, prev);
   }
 }
@@ -155,22 +150,6 @@ static void graphics_layer_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_rect(ctx, GRect(0, 0, 144, 168), 0, GCornerNone);
   
-  /* Draws game board */
-  for (int r = 0; r < BOARD_SIZE; r++) {
-    for (int c = 0; c < BOARD_SIZE; c++) {
-      graphics_context_set_fill_color(ctx, game_colors[board[r][c]]);
-      graphics_fill_rect(ctx, GRect(offset_x + (c * 10), offset_y + (r * 10), 10, 10), 0, GCornerNone);
-    }
-  }
-  
-  /* Draws color selector */
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, GRect(12 + (active_color * 10), 8, 10, 10), 0, GCornerNone);
-  for (int i = 0; i < MAXCOLS; i++) {
-    graphics_context_set_fill_color(ctx, game_colors[i]);
-    graphics_fill_rect(ctx, GRect(13 + (i * 10), 9, 8, 8), 0, GCornerNone);
-  }
-  
   if (game_state == WIN) {
     text_layer_set_text(text_layer, "Winner");
     active_color = 0;
@@ -185,19 +164,54 @@ static void graphics_layer_update_proc(Layer *layer, GContext *ctx) {
       text_layer_set_text(text_layer, move_string);
     }
   }
+  
+  /* Draws game board */
+  for (int r = 0; r < BOARD_SIZE; r++) {
+    for (int c = 0; c < BOARD_SIZE; c++) {
+      graphics_context_set_fill_color(ctx, game_colors[board[r][c]]);
+      graphics_fill_rect(ctx, GRect(offset_x + (c * 10), offset_y + (r * 10), 10, 10), 0, GCornerNone);
+    }
+  }
+  
+  /* Draws color selector */
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, GRect(12 + (active_color * 10), 8, 10, 10), 0, GCornerNone);
+  for (int i = 0; i < VARIABLE_COLORS; i++) {
+    graphics_context_set_fill_color(ctx, game_colors[i]);
+    graphics_fill_rect(ctx, GRect(13 + (i * 10), 9, 8, 8), 0, GCornerNone);
+  }
 }
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (game_state == PLAY) {
     if (!recur) {
-      ree = 0; //DEBUG
       recur = true;
-      int prev;
-      prev = board[0][0];
-      set_cell_color(0, 0, active_color, prev);
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "Recursions: %d", ree); //DEBUG
+      int prev_color;
+      int path_size = path->size;
+      prev_color = board[0][0];
+      //APP_LOG(APP_LOG_LEVEL_DEBUG, "Path Size: %d", path_size);
+      
+      for (int i = 0; i < path_size; i++) {
+        int old = board[path->pos_path[i].row][path->pos_path[i].col];
+        colors[old]--;
+        board[path->pos_path[i].row][path->pos_path[i].col] = active_color;
+        colors[active_color]++;
+      }
+      
+      for (int i = 0; i < path_size; i++) {
+        recursions = 0; //DEBUG
+        set_cell_color(path->pos_path[i].row, path->pos_path[i].col, active_color, prev_color);
+        //APP_LOG(APP_LOG_LEVEL_DEBUG, "Recursions starting on (%d, %d): %d", path->pos_path[i].row, path->pos_path[i].col, recursions); //DEBUG 
+      }
+      
+      /* checks path for cells that are surrounded by the same color 
+      for (int i = 0; i < path_size; i++) {
+        if (path->is_covered[i] == false) {
+          path->is_covered[i] = check_covered(path->pos_path[i].row, path->pos_path[i].col);
+        }
+      }*/
       moves++;
-      set_state();
+      set_state();      
     }
   } else if (game_state == MENU) {
     //select will not affect the game when in menu
@@ -215,7 +229,7 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
     if (active_color > 0) {
       active_color--;
     } else {
-      active_color = MAXCOLS - 1;
+      active_color = VARIABLE_COLORS - 1;
     }
     layer_mark_dirty(graphics_layer);
   }
@@ -226,7 +240,7 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
     //
   } else {
     recur = false;
-    if (active_color < MAXCOLS - 1) {
+    if (active_color < VARIABLE_COLORS - 1) {
       active_color++;
     } else {
       active_color = 0;
@@ -246,6 +260,7 @@ static void window_load(Window *window) {
   //GRect bounds = layer_get_bounds(window_layer);
   
   move_string = malloc(sizeof(char) * 6);
+  path = path_create_path(BOARD_SIZE * BOARD_SIZE);
   init_board();
 
   graphics_layer = layer_create(GRect(0, 0, 144, 168));
@@ -264,6 +279,8 @@ static void window_unload(Window *window) {
   text_layer_destroy(text_layer);
   layer_destroy(graphics_layer);
   free(move_string);
+  free(path->pos_path);
+  free(path);
 }
 
 static void init(void) {

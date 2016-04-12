@@ -10,6 +10,18 @@
     "resources": {
         "media": [
             {
+                "file": "images/title-light.png",
+                "name": "IMAGE_TITLE_LIGHT",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "images/title-dark.png",
+                "name": "IMAGE_TITLE_DARK",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
                 "file": "images/image_icon.png",
                 "menuIcon": true,
                 "name": "IMAGE_ICON",
